@@ -45,8 +45,8 @@ following resume bullets:
   │  pypdf   │         │ sentence-    │      │   litellm   │
   │ extract  │ ──text─▶│ transformers │      │  (Groq /    │
   │  text    │         │  MiniLM-L6   │      │  Gemini /   │
-  └──────────┘         └──────┬───────┘      │  OpenAI /   │
-                              │ embeddings   │  Anthropic) │
+  └──────────┘         └──────┬───────┘      │  OpenAI)    │
+                              │ embeddings   │             │
                               ▼              └──────┬──────┘
                        ┌──────────────┐             │
                        │  FAISS index │             │
@@ -231,10 +231,6 @@ GEMINI_API_KEY=...
 # OpenAI
 LLM_MODEL=gpt-4o-mini
 OPENAI_API_KEY=...
-
-# Anthropic
-LLM_MODEL=claude-3-5-haiku-20241022
-ANTHROPIC_API_KEY=...
 ```
 
 If the LLM call fails or times out (15 s), the candidate's

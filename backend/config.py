@@ -9,7 +9,6 @@ load_dotenv()
 #   groq/llama-3.1-8b-instant    Groq (free, fast — default)
 #   gemini/gemini-2.0-flash      Google (free tier)
 #   gpt-4o-mini                  OpenAI
-#   claude-3-5-haiku-20241022    Anthropic
 LLM_MODEL = os.getenv("LLM_MODEL", "groq/llama-3.1-8b-instant")
 
 LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", "15"))
