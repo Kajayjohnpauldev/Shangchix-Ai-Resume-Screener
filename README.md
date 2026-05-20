@@ -11,7 +11,7 @@ match score, top matching skills, top gaps, and a recruiter-style
 
 ## Why this exists
 
-This project demonstrates the full lifecycle of a modern AI app —
+This project demonstrates the full lifecycle of a modern ML application —
 ingestion, embeddings, vector search, and LLM reasoning — wrapped in a
 production-style FastAPI + Streamlit deployment. It backs the
 following resume bullets:

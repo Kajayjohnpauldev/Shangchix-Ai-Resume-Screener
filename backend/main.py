@@ -63,7 +63,7 @@ async def score(
     results: list[CandidateResult] = []
     for i, r in enumerate(ranked):
         if i < TOP_K_EXPLAIN:
-            # Feed the AI the complete skill picture so its assessment and
+            # Feed the model the complete skill picture so its assessment and
             # improvement tips reflect every match and gap, not just three.
             advice = explain(
                 job_description,

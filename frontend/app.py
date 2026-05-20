@@ -213,8 +213,8 @@ if go:
                     else "_none surfaced_"
                 )
 
-            # AI assessment
-            st.markdown("**🧠 AI assessment**")
+            # Recruiter assessment
+            st.markdown("**🧠 Recruiter assessment**")
             st.info(r["explanation"], icon="📝")
 
             # Improvements
