@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import dataclass, field
 from typing import Any
 
 import litellm
@@ -31,13 +32,28 @@ logger = logging.getLogger(__name__)
 # reject response_format) instead of raising — keeps the call portable.
 litellm.drop_params = True
 
+
+@dataclass
+class Advice:
+    """One LLM result: a recruiter assessment plus resume-improvement tips."""
+
+    explanation: str
+    improvements: list[str] = field(default_factory=list)
+
+
 _SYSTEM_PROMPT = (
-    "You are an expert technical recruiter. Given a job description and a "
-    "candidate's resume, write a concise 2-sentence assessment for the hiring "
-    "manager. Be specific about strengths and clear about gaps. Respond ONLY "
-    "with strict JSON in the form: "
-    '{"explanation": "..."} '
-    "where the value is one string of no more than 60 words."
+    "You are an expert technical recruiter and resume coach. Given a job "
+    "description and a candidate's resume, return TWO things:\n"
+    "1. A concise 2-sentence assessment for the hiring manager — specific "
+    "about strengths and clear about gaps.\n"
+    "2. 3 to 5 short, concrete, actionable suggestions the candidate could "
+    "make to their resume to better match THIS role and raise their match "
+    "score — e.g. skills to add, keywords to include, achievements to "
+    "quantify. Each suggestion under 20 words, phrased as an imperative.\n"
+    "Respond ONLY with strict JSON in the form: "
+    '{"explanation": "...", "improvements": ["...", "..."]} '
+    "where explanation is one string under 60 words and improvements is a "
+    "list of short strings."
 )
 
 
@@ -58,7 +74,7 @@ def _build_user_prompt(
     )
 
 
-def _parse_explanation(content: str) -> str:
+def _parse_advice(content: str) -> Advice:
     # Some providers wrap JSON in ```json fences — strip them.
     cleaned = content.strip()
     if cleaned.startswith("```"):
@@ -68,10 +84,17 @@ def _parse_explanation(content: str) -> str:
     try:
         data: Any = json.loads(cleaned)
         if isinstance(data, dict) and isinstance(data.get("explanation"), str):
-            return data["explanation"].strip()
+            raw_tips = data.get("improvements", [])
+            tips = [
+                str(t).strip()
+                for t in raw_tips
+                if isinstance(t, (str, int, float)) and str(t).strip()
+            ][:5]
+            return Advice(explanation=data["explanation"].strip(), improvements=tips)
     except (json.JSONDecodeError, AttributeError):
         pass
-    return content.strip()[:400] or "Explanation unavailable"
+    # Couldn't parse JSON — salvage the raw text as the explanation.
+    return Advice(explanation=content.strip()[:400] or "Explanation unavailable")
 
 
 def explain(
@@ -79,8 +102,8 @@ def explain(
     resume: str,
     matched_skills: list[str],
     gaps: list[str],
-) -> str:
-    """Return a one-paragraph explanation, or 'Explanation unavailable'."""
+) -> Advice:
+    """Return an Advice (assessment + improvement tips), or a safe fallback."""
     try:
         response = completion(
             model=LLM_MODEL,
@@ -94,12 +117,12 @@ def explain(
                 },
             ],
             temperature=0.2,
-            max_tokens=200,
+            max_tokens=400,
             timeout=LLM_TIMEOUT_SECONDS,
             response_format={"type": "json_object"},
         )
         content = response.choices[0].message.content or ""
-        return _parse_explanation(content)
+        return _parse_advice(content)
     except Exception as exc:
         logger.warning("LLM explanation failed: %s", exc)
-        return "Explanation unavailable"
+        return Advice(explanation="Explanation unavailable")

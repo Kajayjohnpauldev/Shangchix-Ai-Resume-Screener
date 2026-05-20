@@ -8,8 +8,8 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import TOP_K_EXPLAIN
-from backend.explainer import explain
-from backend.pdf_parser import candidate_name_from_filename, extract_text
+from backend.explainer import Advice, explain
+from backend.pdf_parser import candidate_name_from_filename, extract_resume_text
 from backend.schemas import CandidateResult, ScoreResponse
 from backend.scorer import rank
 
@@ -52,8 +52,9 @@ async def score(
     parsed: list[tuple[str, str]] = []
     for upload in resumes:
         raw = await upload.read()
-        text = extract_text(raw)
-        name = candidate_name_from_filename(upload.filename or "candidate.pdf")
+        filename = upload.filename or "candidate.pdf"
+        text = extract_resume_text(filename, raw)
+        name = candidate_name_from_filename(filename)
         parsed.append((name, text))
         logger.info("parsed %s (%d chars)", name, len(text))
 
@@ -62,23 +63,35 @@ async def score(
     results: list[CandidateResult] = []
     for i, r in enumerate(ranked):
         if i < TOP_K_EXPLAIN:
-            explanation = explain(
+            # Feed the AI the complete skill picture so its assessment and
+            # improvement tips reflect every match and gap, not just three.
+            advice = explain(
                 job_description,
                 r.resume_text,
-                r.top_skills_matched,
-                r.top_gaps,
+                r.all_skills_matched,
+                r.all_gaps,
             )
         else:
-            explanation = "Ranked outside top results — explanation skipped."
+            advice = Advice(
+                explanation="Ranked outside top results — explanation skipped."
+            )
         results.append(
             CandidateResult(
                 resume_id=r.resume_id,
                 candidate_name=r.candidate_name,
                 score=r.score,
                 raw_similarity=r.raw_similarity,
+                projected_score=r.projected_score,
+                score_uplift=r.score_uplift,
+                ats_score=r.ats_score,
+                keywords_matched=r.keywords_matched,
+                keywords_total=r.keywords_total,
                 top_skills_matched=r.top_skills_matched,
                 top_gaps=r.top_gaps,
-                explanation=explanation,
+                all_skills_matched=r.all_skills_matched,
+                all_gaps=r.all_gaps,
+                explanation=advice.explanation,
+                improvements=advice.improvements,
             )
         )
 

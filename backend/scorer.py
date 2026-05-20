@@ -88,8 +88,15 @@ class ScoredResume:
     candidate_name: str
     score: float                       # 0–100
     raw_similarity: float              # cosine, 0–1
-    top_skills_matched: list[str] = field(default_factory=list)
-    top_gaps: list[str] = field(default_factory=list)
+    top_skills_matched: list[str] = field(default_factory=list)  # headline 3
+    top_gaps: list[str] = field(default_factory=list)            # headline 3
+    all_skills_matched: list[str] = field(default_factory=list)  # every JD skill present
+    all_gaps: list[str] = field(default_factory=list)            # every JD skill missing
+    projected_score: float = 0.0       # 0–100, score if top gaps were added
+    score_uplift: float = 0.0          # projected_score − score
+    ats_score: float = 0.0             # 0–100, JD-keyword coverage (ATS-style)
+    keywords_matched: int = 0          # JD skills found in the resume
+    keywords_total: int = 0            # distinct skills detected in the JD
     resume_text: str = ""              # kept for the explainer step
 
 
@@ -115,19 +122,49 @@ def rank(
     hit_by_idx = {h.index: h.score for h in hits}
 
     jd_skills_ordered = [s for s, _ in _detect_skills(jd_text)]
-    jd_skill_set = set(jd_skills_ordered)
 
-    results: list[ScoredResume] = []
+    # First pass: matched/gap skills, plus an "augmented" copy of each
+    # resume with its top missing JD skills appended. Re-embedding that
+    # augmented text against the JD gives an honest projected score —
+    # "what this resume could score if it credibly added these skills".
+    jd_skill_count = len(jd_skills_ordered)
+
+    interim: list[tuple] = []
+    augmented_texts: list[str] = []
     for i, (name, text) in enumerate(resumes):
         sim = hit_by_idx.get(i, 0.0)
+        resume_skill_set = {s for s, _ in _detect_skills(text)}
+        # Preserve JD ordering — earliest-mentioned skills come first.
+        covered = [s for s in jd_skills_ordered if s in resume_skill_set]
+        gaps_all = [s for s in jd_skills_ordered if s not in resume_skill_set]
+        matched, gaps = covered[:3], gaps_all[:3]
+        interim.append((i, name, text, sim, matched, gaps, covered, gaps_all))
+        augmented_texts.append(
+            text + ("\nAdditional skills: " + ", ".join(gaps) if gaps else "")
+        )
+
+    aug_vecs = embed_many(augmented_texts)
+
+    results: list[ScoredResume] = []
+    for (i, name, text, sim, matched, gaps, covered, gaps_all), aug_vec in zip(
+        interim, aug_vecs
+    ):
+        n_covered = len(covered)
         # Clip negative cosines to 0 (irrelevant), scale [0,1] → [0,100].
         score_100 = max(0.0, min(100.0, sim * 100.0))
 
-        resume_skill_set = {s for s, _ in _detect_skills(text)}
+        if gaps:
+            proj_sim = float(np.dot(jd_vec, aug_vec))
+            proj_100 = max(0.0, min(100.0, proj_sim * 100.0))
+            # Adding skills should never *lower* the displayed potential.
+            proj_100 = max(proj_100, score_100)
+        else:
+            proj_100 = score_100
 
-        # Preserve JD ordering — earliest-mentioned skills come first.
-        matched = [s for s in jd_skills_ordered if s in resume_skill_set][:3]
-        gaps = [s for s in jd_skills_ordered if s not in resume_skill_set][:3]
+        # ATS-style score: fraction of the JD's distinct skill keywords the
+        # resume actually contains — this is what keyword-matching applicant
+        # tracking systems screen on, distinct from the semantic score above.
+        ats = round(100.0 * n_covered / jd_skill_count, 1) if jd_skill_count else 0.0
 
         results.append(
             ScoredResume(
@@ -137,6 +174,13 @@ def rank(
                 raw_similarity=round(float(sim), 4),
                 top_skills_matched=matched,
                 top_gaps=gaps,
+                all_skills_matched=covered,
+                all_gaps=gaps_all,
+                projected_score=round(proj_100, 2),
+                score_uplift=round(proj_100 - score_100, 2),
+                ats_score=ats,
+                keywords_matched=n_covered,
+                keywords_total=jd_skill_count,
                 resume_text=text,
             )
         )

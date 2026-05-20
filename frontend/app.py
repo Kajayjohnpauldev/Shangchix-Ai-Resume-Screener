@@ -1,7 +1,11 @@
-"""Shangchix AI Resume — Streamlit frontend.
+"""Shangchix AI Resume — Streamlit frontend (minimal black & white).
 
 Run with: streamlit run frontend/app.py
 The backend must be reachable at BACKEND_URL (default http://127.0.0.1:8000).
+
+Results are rendered with native Streamlit widgets (st.container, st.metric,
+st.markdown) rather than hand-rolled HTML — that keeps the text crisp and
+always visible, and lets the theme in .streamlit/config.toml own the look.
 """
 from __future__ import annotations
 
@@ -15,166 +19,56 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
 
 st.set_page_config(
     page_title="Shangchix AI Resume",
-    page_icon="🧠",
+    page_icon="◼",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# --- Custom theme / CSS -----------------------------------------------------
+# Tiny bit of CSS: black progress bars + a touch more contrast. Everything
+# else comes from the theme config (black/white/grey) so it stays clean.
 st.markdown(
     """
     <style>
-    /* Hide Streamlit's default header padding so our banner sits flush. */
-    .block-container { padding-top: 2rem; padding-bottom: 3rem; }
-
-    /* Gradient hero banner */
-    .shx-hero {
-        background: linear-gradient(120deg, #4f46e5 0%, #7c3aed 45%, #ec4899 100%);
-        padding: 28px 32px;
-        border-radius: 18px;
-        color: white;
-        box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
-        margin-bottom: 28px;
-    }
-    .shx-hero h1 {
-        font-size: 2.1rem;
-        font-weight: 800;
-        margin: 0;
-        letter-spacing: -0.5px;
-    }
-    .shx-hero p {
-        margin: 6px 0 0 0;
-        opacity: 0.92;
-        font-size: 1rem;
-    }
-    .shx-hero .shx-tag {
-        display: inline-block;
-        background: rgba(255,255,255,0.18);
-        padding: 3px 10px;
-        border-radius: 999px;
-        font-size: 0.78rem;
-        font-weight: 600;
-        margin-right: 6px;
-        margin-top: 10px;
-    }
-
-    /* Candidate cards */
-    .shx-card {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 14px;
-        padding: 18px 22px;
-        margin-bottom: 14px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-    }
-    .shx-card-header {
-        display: flex; align-items: center; justify-content: space-between;
-        gap: 12px; margin-bottom: 8px;
-    }
-    .shx-rank {
-        background: linear-gradient(135deg, #4f46e5, #7c3aed);
-        color: white;
-        width: 38px; height: 38px;
-        border-radius: 50%;
-        display: inline-flex; align-items: center; justify-content: center;
-        font-weight: 700;
-    }
-    .shx-name { font-size: 1.15rem; font-weight: 700; color: #111827; }
-    .shx-score-pill {
-        background: #ecfdf5; color: #047857;
-        padding: 4px 12px; border-radius: 999px;
-        font-weight: 700; font-size: 0.9rem;
-    }
-    .shx-score-pill.med { background: #fef3c7; color: #92400e; }
-    .shx-score-pill.low { background: #fee2e2; color: #991b1b; }
-
-    /* Skill / gap chips */
-    .shx-chip {
-        display: inline-block;
-        padding: 4px 10px;
-        margin: 3px 4px 3px 0;
-        border-radius: 999px;
-        font-size: 0.82rem;
-        font-weight: 600;
-    }
-    .shx-chip.match { background: #dcfce7; color: #166534; }
-    .shx-chip.gap   { background: #fee2e2; color: #991b1b; }
-
-    .shx-section-label {
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        font-size: 0.72rem;
-        font-weight: 700;
-        color: #6b7280;
-        margin: 14px 0 4px 0;
-    }
-    .shx-explain {
-        background: #f5f3ff;
-        border-left: 4px solid #7c3aed;
-        padding: 12px 14px;
-        border-radius: 8px;
-        font-size: 0.95rem;
-        color: #1f2937;
-        line-height: 1.55;
-    }
-
-    /* Score-button primary tweak */
-    .stButton > button[kind="primary"] {
-        background: linear-gradient(120deg, #4f46e5, #7c3aed);
-        border: 0;
-        font-weight: 700;
-        letter-spacing: 0.3px;
-    }
-    .stButton > button[kind="primary"]:hover {
-        background: linear-gradient(120deg, #4338ca, #6d28d9);
-    }
+    .block-container { max-width: 1080px; padding-top: 2rem; }
+    .stProgress > div > div > div > div { background-color: #111111; }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 
-# --- Hero banner ------------------------------------------------------------
-st.markdown(
-    """
-    <div class="shx-hero">
-      <h1>🧠 Shangchix AI Resume</h1>
-      <p>Rank candidates against any job description with semantic search and explainable AI reasoning.</p>
-      <div>
-        <span class="shx-tag">RAG</span>
-        <span class="shx-tag">FAISS</span>
-        <span class="shx-tag">Sentence-Transformers</span>
-        <span class="shx-tag">Gemini · LiteLLM</span>
-        <span class="shx-tag">FastAPI · Streamlit</span>
-      </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
+# --- Header -----------------------------------------------------------------
+st.title("Shangchix AI Resume")
+st.caption(
+    "Rank candidates against a job description with semantic search, "
+    "an ATS keyword score, and concrete fixes to raise each resume."
 )
+st.divider()
 
 
 # --- Sidebar ----------------------------------------------------------------
 with st.sidebar:
     st.markdown("### How it works")
     st.markdown(
-        "1. PDFs → text via **pypdf**\n"
+        "1. PDF / Word → text\n"
         "2. JD + resumes → embeddings (**MiniLM-L6**)\n"
-        "3. **FAISS** cosine similarity → 0–100 score\n"
-        "4. Top-K candidates → **LLM** recruiter blurb"
+        "3. **FAISS** cosine similarity → match score\n"
+        "4. JD keyword coverage → **ATS score**\n"
+        "5. Top candidates → **LLM** assessment + fixes"
     )
     st.divider()
     st.markdown("### Tips")
     st.markdown(
-        "- Paste the **full JD** for best semantic match.\n"
-        "- 5–20 resumes is the sweet spot.\n"
-        "- Use the bundled `tests/sample_resumes/` PDFs for a quick demo."
+        "- Paste the **full JD** for the best match.\n"
+        "- Upload **PDF or .docx** resumes.\n"
+        "- Use the bundled `tests/sample_resumes/` files for a quick demo."
     )
     st.divider()
     st.caption(f"Backend: `{BACKEND_URL}`")
     try:
         h = requests.get(f"{BACKEND_URL}/health", timeout=2)
         if h.status_code == 200:
-            st.success("Backend online ✅", icon="🟢")
+            st.success("Backend online", icon="✅")
         else:
             st.warning(f"Backend status {h.status_code}", icon="⚠️")
     except requests.exceptions.RequestException:
@@ -185,7 +79,7 @@ with st.sidebar:
 col_jd, col_files = st.columns([3, 2], gap="large")
 
 with col_jd:
-    st.markdown("#### 📝 Job Description")
+    st.markdown("#### Job Description")
     job_description = st.text_area(
         "Job Description",
         label_visibility="collapsed",
@@ -200,52 +94,42 @@ with col_jd:
     )
 
 with col_files:
-    st.markdown("#### 📄 Resumes (PDF)")
+    st.markdown("#### Resumes (PDF or Word)")
     uploaded = st.file_uploader(
         "Resumes",
         label_visibility="collapsed",
-        type=["pdf"],
+        type=["pdf", "docx"],
         accept_multiple_files=True,
-        help="Drop one or many PDFs. Bigger batches still finish in under a minute.",
+        help="Drop one or many PDF or .docx files.",
     )
     if uploaded:
-        st.caption(f"📎 {len(uploaded)} resume(s) loaded")
+        st.caption(f"{len(uploaded)} resume(s) loaded")
 
 st.write("")
-go = st.button(
-    "🚀 Score Resumes",
-    type="primary",
-    use_container_width=True,
-    disabled=not (job_description and uploaded),
-)
-
-
-# --- Helpers ----------------------------------------------------------------
-def _score_class(score: float) -> str:
-    if score >= 65:
-        return ""
-    if score >= 45:
-        return "med"
-    return "low"
-
-
-def _chip(text: str, kind: str) -> str:
-    return f'<span class="shx-chip {kind}">{text}</span>'
+go = st.button("Score Resumes", type="primary", use_container_width=True)
 
 
 # --- Run ranking ------------------------------------------------------------
 if go:
+    missing = []
+    if not job_description:
+        missing.append("a **job description**")
+    if not uploaded:
+        missing.append("at least **one PDF or Word resume**")
+    if missing:
+        st.warning("Add " + " and ".join(missing) + " first, then hit Score.", icon="⚠️")
+        st.stop()
+
     with st.spinner(f"Scoring {len(uploaded)} resume(s)…"):
         files = [
-            ("resumes", (f.name, f.getvalue(), "application/pdf"))
+            ("resumes", (f.name, f.getvalue(), f.type or "application/octet-stream"))
             for f in uploaded
         ]
-        data = {"job_description": job_description}
         t0 = time.time()
         try:
             resp = requests.post(
                 f"{BACKEND_URL}/score",
-                data=data,
+                data={"job_description": job_description},
                 files=files,
                 timeout=180,
             )
@@ -263,55 +147,87 @@ if go:
 
     # Summary metrics row
     top_score = results[0]["score"] if results else 0
-    avg_score = (
-        sum(r["score"] for r in results) / len(results) if results else 0
+    avg_ats = (
+        sum(r.get("ats_score", 0) for r in results) / len(results)
+        if results else 0
     )
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Candidates", payload["candidate_count"])
-    m2.metric("Top score", f"{top_score:.1f}")
-    m3.metric("Average", f"{avg_score:.1f}")
+    m2.metric("Top match", f"{top_score:.0f}/100")
+    m3.metric("Avg ATS", f"{avg_ats:.0f}%")
     m4.metric("Elapsed", f"{elapsed:.1f}s")
 
-    st.markdown("### 🏆 Ranked candidates")
+    st.subheader("Ranked candidates")
 
     for rank_idx, r in enumerate(results, start=1):
         score = float(r["score"])
-        score_cls = _score_class(score)
-        matched_chips = "".join(
-            _chip(s.title(), "match") for s in r["top_skills_matched"]
-        ) or '<span style="color:#6b7280;">— none surfaced —</span>'
-        gap_chips = "".join(
-            _chip(s.title(), "gap") for s in r["top_gaps"]
-        ) or '<span style="color:#6b7280;">— none surfaced —</span>'
+        ats = float(r.get("ats_score", 0.0))
+        projected = float(r.get("projected_score", score))
+        uplift = float(r.get("score_uplift", 0.0))
+        kw_m = int(r.get("keywords_matched", 0))
+        kw_t = int(r.get("keywords_total", 0))
 
-        st.markdown(
-            f"""
-            <div class="shx-card">
-              <div class="shx-card-header">
-                <div style="display:flex; align-items:center; gap:14px;">
-                  <span class="shx-rank">{rank_idx}</span>
-                  <span class="shx-name">{r['candidate_name']}</span>
-                </div>
-                <span class="shx-score-pill {score_cls}">{score:.1f} / 100</span>
-              </div>
-              <div style="color:#6b7280; font-size:0.85rem; margin-bottom:6px;">
-                Cosine similarity: {r['raw_similarity']:.3f}
-              </div>
-              <div class="shx-section-label">Top matching skills</div>
-              <div>{matched_chips}</div>
-              <div class="shx-section-label">Top gaps vs. JD</div>
-              <div>{gap_chips}</div>
-              <div class="shx-section-label">AI explanation</div>
-              <div class="shx-explain">{r['explanation']}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.progress(min(int(score), 100))
+        with st.container(border=True):
+            head_l, head_r = st.columns([4, 1])
+            with head_l:
+                st.markdown(f"### {rank_idx}.  {r['candidate_name']}")
+            with head_r:
+                st.markdown(
+                    f"<div style='text-align:right;font-size:1.6rem;"
+                    f"font-weight:800;'>{score:.0f}"
+                    f"<span style='font-size:0.8rem;color:#888;'>/100</span></div>",
+                    unsafe_allow_html=True,
+                )
+
+            # Score dashboard
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Match score", f"{score:.0f}/100")
+            c2.metric(
+                "ATS keyword score",
+                f"{ats:.0f}%",
+                help=f"{kw_m} of {kw_t} JD keywords found in this resume",
+            )
+            c3.metric(
+                "Projected match",
+                f"{projected:.0f}/100",
+                delta=(f"+{uplift:.0f}" if uplift >= 0.5 else None),
+                help="Score if the candidate adds the missing skills below",
+            )
+            st.progress(min(int(score), 100))
+
+            # Skills — show the COMPLETE lists so the chips line up with the
+            # ATS keyword count above (e.g. ATS 7/8 → 7 matching chips).
+            matched = r.get("all_skills_matched") or r["top_skills_matched"]
+            gaps = r.get("all_gaps") or r["top_gaps"]
+            sk_l, sk_r = st.columns(2)
+            with sk_l:
+                st.markdown(f"**✅ Matching skills ({len(matched)})**")
+                st.markdown(
+                    " ".join(f"`{s}`" for s in matched) if matched
+                    else "_none surfaced_"
+                )
+            with sk_r:
+                st.markdown(f"**⬜ Missing skills to add ({len(gaps)})**")
+                st.markdown(
+                    " ".join(f"`{s}`" for s in gaps) if gaps
+                    else "_none surfaced_"
+                )
+
+            # AI assessment
+            st.markdown("**🧠 AI assessment**")
+            st.info(r["explanation"], icon="📝")
+
+            # Improvements
+            improvements = r.get("improvements", []) or []
+            if improvements:
+                st.markdown("**🔧 How to improve this resume**")
+                st.markdown("\n".join(f"- {t}" for t in improvements))
+
+            st.caption(f"Cosine similarity: {r['raw_similarity']:.3f}")
 
 else:
     st.info(
-        "👆 Paste a job description and upload one or more PDF resumes, "
-        "then hit **Score Resumes**.",
+        "Paste a job description and upload one or more PDF or Word resumes, "
+        "then click **Score Resumes**.",
         icon="💡",
     )
