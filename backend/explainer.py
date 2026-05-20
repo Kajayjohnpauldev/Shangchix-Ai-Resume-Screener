@@ -2,13 +2,13 @@
 
 The provider is chosen entirely by the LLM_MODEL string — litellm routes
 on the prefix:
-    "gemini/gemini-1.5-flash"      Google (free tier, default)
+    "groq/llama-3.1-8b-instant"    Groq (free, fast — default)
+    "gemini/gemini-2.0-flash"      Google (free tier)
     "gpt-4o-mini"                  OpenAI
-    "groq/llama-3.1-8b-instant"    Groq
     "claude-3-5-haiku-20241022"    Anthropic
 
 litellm reads the matching API key from the environment automatically
-(GEMINI_API_KEY / OPENAI_API_KEY / GROQ_API_KEY / ANTHROPIC_API_KEY), so
+(GROQ_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY), so
 re-pointing the app at another provider is two env vars and zero code
 changes. On any failure (network, timeout, malformed JSON, missing key)
 this returns 'Explanation unavailable' so the ranking endpoint never

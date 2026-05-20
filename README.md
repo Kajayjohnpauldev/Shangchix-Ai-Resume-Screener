@@ -71,7 +71,7 @@ following resume bullets:
 | PDF parsing  | `pypdf`                                |
 | Embeddings   | `sentence-transformers/all-MiniLM-L6-v2` (local, ~80 MB, no API cost) |
 | Vector store | `faiss-cpu` (`IndexFlatIP` w/ normalized vectors → cosine sim) |
-| LLM client   | `litellm` (provider-agnostic — Gemini default) |
+| LLM client   | `litellm` (provider-agnostic — Groq default) |
 | Schemas      | `pydantic` v2                          |
 | Tests        | `pytest`                               |
 
@@ -125,8 +125,8 @@ pip install -r requirements.txt
 # 3. Configure your LLM provider
 cp .env.example .env        # macOS / Linux
 copy .env.example .env      # Windows
-# Then edit .env and add your GEMINI_API_KEY
-# (free at https://aistudio.google.com/apikey)
+# Then edit .env and add your GROQ_API_KEY
+# (free at https://console.groq.com/keys)
 
 # 4. Generate the sample resume PDFs (one-time)
 python scripts/generate_sample_resumes.py
@@ -189,8 +189,8 @@ deploys anywhere that runs containers:
 - **Streamlit Community Cloud:** host the frontend there and point
   `BACKEND_URL` at a separately-hosted backend.
 
-For deployment the free **Gemini** provider needs no billing setup — set
-`LLM_MODEL=gemini/gemini-1.5-flash` and `GEMINI_API_KEY` in the backend's
+For deployment the free **Groq** provider needs no billing setup — set
+`LLM_MODEL=groq/llama-3.1-8b-instant` and `GROQ_API_KEY` in the backend's
 environment (litellm reads the provider from the model prefix). If the LLM
 is unreachable the ranking still
 returns; only the per-candidate explanation degrades to "Explanation
@@ -220,13 +220,13 @@ Because the LLM call goes through `litellm`, swapping providers is just
 two env vars. Examples for `.env`:
 
 ```env
-# Google Gemini (default — free)
-LLM_MODEL=gemini/gemini-1.5-flash
-GEMINI_API_KEY=...
-
-# Groq (free, very fast)
+# Groq (default — free, very fast)
 LLM_MODEL=groq/llama-3.1-8b-instant
 GROQ_API_KEY=...
+
+# Google Gemini (free tier — needs free-tier quota on the key)
+LLM_MODEL=gemini/gemini-2.0-flash
+GEMINI_API_KEY=...
 
 # OpenAI
 LLM_MODEL=gpt-4o-mini
