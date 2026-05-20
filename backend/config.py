@@ -4,15 +4,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Which LLM provider LangChain should dispatch to.
-# Supported: "openai", "gemini".
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai").lower()
-
-# Per-provider model name. Defaults chosen for cost + quality.
-LLM_MODEL = os.getenv(
-    "LLM_MODEL",
-    "gpt-4o-mini" if LLM_PROVIDER == "openai" else "gemini-1.5-flash",
-)
+# litellm selects the provider from the model-string prefix, so a single
+# env var re-points the whole app. Examples:
+#   gemini/gemini-1.5-flash      Google (free tier, default)
+#   gpt-4o-mini                  OpenAI
+#   groq/llama-3.1-8b-instant    Groq
+#   claude-3-5-haiku-20241022    Anthropic
+LLM_MODEL = os.getenv("LLM_MODEL", "gemini/gemini-1.5-flash")
 
 LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", "15"))
 TOP_K_EXPLAIN = int(os.getenv("TOP_K_EXPLAIN", "5"))

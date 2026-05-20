@@ -190,8 +190,9 @@ deploys anywhere that runs containers:
   `BACKEND_URL` at a separately-hosted backend.
 
 For deployment the free **Gemini** provider needs no billing setup — set
-`LLM_PROVIDER=gemini`, `LLM_MODEL=gemini-1.5-flash`, and `GEMINI_API_KEY`
-in the backend's environment. If the LLM is unreachable the ranking still
+`LLM_MODEL=gemini/gemini-1.5-flash` and `GEMINI_API_KEY` in the backend's
+environment (litellm reads the provider from the model prefix). If the LLM
+is unreachable the ranking still
 returns; only the per-candidate explanation degrades to "Explanation
 unavailable".
 

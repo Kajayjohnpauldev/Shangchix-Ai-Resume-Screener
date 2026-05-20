@@ -1,23 +1,35 @@
-"""LangChain-driven LLM explanations.
+"""LiteLLM-driven LLM explanations.
 
-Dispatches on LLM_PROVIDER: "openai" (gpt-4o-mini default) or "gemini"
-(gemini-1.5-flash default). On any failure (network, timeout, malformed
-JSON, missing key) returns 'Explanation unavailable' so the ranking
-endpoint never crashes on the LLM step.
+The provider is chosen entirely by the LLM_MODEL string — litellm routes
+on the prefix:
+    "gemini/gemini-1.5-flash"      Google (free tier, default)
+    "gpt-4o-mini"                  OpenAI
+    "groq/llama-3.1-8b-instant"    Groq
+    "claude-3-5-haiku-20241022"    Anthropic
+
+litellm reads the matching API key from the environment automatically
+(GEMINI_API_KEY / OPENAI_API_KEY / GROQ_API_KEY / ANTHROPIC_API_KEY), so
+re-pointing the app at another provider is two env vars and zero code
+changes. On any failure (network, timeout, malformed JSON, missing key)
+this returns 'Explanation unavailable' so the ranking endpoint never
+crashes on the LLM step.
 """
 from __future__ import annotations
 
 import json
 import logging
-import os
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_core.language_models.chat_models import BaseChatModel
+import litellm
+from litellm import completion
 
-from backend.config import LLM_MODEL, LLM_PROVIDER, LLM_TIMEOUT_SECONDS
+from backend.config import LLM_MODEL, LLM_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
+
+# Silently drop kwargs a given provider doesn't support (e.g. some models
+# reject response_format) instead of raising — keeps the call portable.
+litellm.drop_params = True
 
 _SYSTEM_PROMPT = (
     "You are an expert technical recruiter. Given a job description and a "
@@ -27,40 +39,6 @@ _SYSTEM_PROMPT = (
     '{"explanation": "..."} '
     "where the value is one string of no more than 60 words."
 )
-
-_chat_model: BaseChatModel | None = None
-
-
-def _get_chat_model() -> BaseChatModel:
-    """Build the LangChain chat model lazily; cache the instance."""
-    global _chat_model
-    if _chat_model is not None:
-        return _chat_model
-
-    if LLM_PROVIDER == "openai":
-        from langchain_openai import ChatOpenAI
-        _chat_model = ChatOpenAI(
-            model=LLM_MODEL,
-            temperature=0.2,
-            max_tokens=200,
-            timeout=LLM_TIMEOUT_SECONDS,
-            model_kwargs={"response_format": {"type": "json_object"}},
-        )
-    elif LLM_PROVIDER == "gemini":
-        from langchain_google_genai import ChatGoogleGenerativeAI
-        _chat_model = ChatGoogleGenerativeAI(
-            model=LLM_MODEL,
-            temperature=0.2,
-            max_output_tokens=200,
-            timeout=LLM_TIMEOUT_SECONDS,
-            google_api_key=os.getenv("GEMINI_API_KEY")
-            or os.getenv("GOOGLE_API_KEY"),
-        )
-    else:
-        raise ValueError(
-            f"Unsupported LLM_PROVIDER={LLM_PROVIDER!r}. Use 'openai' or 'gemini'."
-        )
-    return _chat_model
 
 
 def _build_user_prompt(
@@ -81,7 +59,7 @@ def _build_user_prompt(
 
 
 def _parse_explanation(content: str) -> str:
-    # Some Gemini responses wrap JSON in ```json fences — strip them.
+    # Some providers wrap JSON in ```json fences — strip them.
     cleaned = content.strip()
     if cleaned.startswith("```"):
         cleaned = cleaned.strip("`")
@@ -104,18 +82,23 @@ def explain(
 ) -> str:
     """Return a one-paragraph explanation, or 'Explanation unavailable'."""
     try:
-        chat = _get_chat_model()
-        response = chat.invoke(
-            [
-                SystemMessage(content=_SYSTEM_PROMPT),
-                HumanMessage(
-                    content=_build_user_prompt(
+        response = completion(
+            model=LLM_MODEL,
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": _build_user_prompt(
                         jd, resume, matched_skills, gaps
-                    )
-                ),
-            ]
+                    ),
+                },
+            ],
+            temperature=0.2,
+            max_tokens=200,
+            timeout=LLM_TIMEOUT_SECONDS,
+            response_format={"type": "json_object"},
         )
-        content = response.content if isinstance(response.content, str) else str(response.content)
+        content = response.choices[0].message.content or ""
         return _parse_explanation(content)
     except Exception as exc:
         logger.warning("LLM explanation failed: %s", exc)
