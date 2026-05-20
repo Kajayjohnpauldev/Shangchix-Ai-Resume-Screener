@@ -1,0 +1,27 @@
+# Keep the build context small and never ship secrets or local caches.
+.venv/
+venv/
+env/
+.git/
+.gitignore
+.github/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Secrets — never bake into an image.
+.env
+
+# Local FAISS artifacts and logs.
+.faiss/
+*.faiss
+*.log
+
+# Editor / OS cruft.
+.idea/
+.vscode/
+.DS_Store

@@ -1,0 +1,8 @@
+# Normalize line endings: LF in the repo, native on checkout.
+* text=auto eol=lf
+
+# Windows batch file must stay CRLF to run under cmd.exe.
+*.bat text eol=crlf
+
+# Treat PDFs (sample resumes) as binary — never line-ending munge them.
+*.pdf binary

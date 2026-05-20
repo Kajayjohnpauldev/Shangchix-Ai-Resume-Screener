@@ -1,0 +1,41 @@
+# Shangchix AI Resume — full stack in two containers from one image.
+#
+#   docker compose up --build
+#
+# Then open http://localhost:8501 (UI). The API is at http://localhost:8000.
+# The frontend reaches the backend over the compose network via the service
+# name `backend` (see BACKEND_URL below), not localhost.
+
+services:
+  backend:
+    build: .
+    image: shangchix-resume
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    # LLM provider + API key live here. Copy .env.example -> .env first.
+    env_file:
+      - .env
+    environment:
+      BACKEND_HOST: "0.0.0.0"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
+  frontend:
+    build: .
+    image: shangchix-resume
+    command: streamlit run frontend/app.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    environment:
+      # Inside the compose network the backend is reachable by service name.
+      BACKEND_URL: "http://backend:8000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
